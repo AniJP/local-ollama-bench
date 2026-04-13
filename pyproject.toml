@@ -1,0 +1,25 @@
+[project]
+name = "local-ollama-bench"
+version = "0.1.0"
+description = "Stream benchmarks for local Ollama (TTFT, decode TPS, latency) + FastAPI assistant UI."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+]
+
+[project.scripts]
+ollama-bench = "local_ollama_bench.cli:main"
+local-assistant = "local_ollama_bench.serve:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/local_ollama_bench"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/local_ollama_bench/static/index.html" = "local_ollama_bench/static/index.html"
