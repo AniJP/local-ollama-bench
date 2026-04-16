@@ -2,17 +2,58 @@ from __future__ import annotations
 
 import argparse
 import csv
-import sys
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
 
 from local_ollama_bench.stream_bench import (
+    StreamMetrics,
     bench_chat_stream,
     mean_stdev,
     summarize_ms,
     summarize_tps,
 )
+
+
+def _append_jsonl(path: Path, record: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def _jsonl_record(
+    *,
+    phase: str,
+    model: str,
+    run: int | None,
+    warmup_index: int | None,
+    temperature: float,
+    seed: int | None,
+    num_predict: int,
+    preset: str,
+    prompt: str,
+    m: StreamMetrics,
+) -> dict[str, object]:
+    return {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "phase": phase,
+        "model": model,
+        "run": run,
+        "warmup_index": warmup_index,
+        "temperature": temperature,
+        "seed": seed,
+        "num_predict": num_predict,
+        "preset": preset,
+        "prompt": prompt,
+        "response": (m.response_text or "") if not m.error else "",
+        "error": m.error or "",
+        "ttft_ms": m.ttft_ms,
+        "total_ms": m.total_ms,
+        "eval_count": m.eval_count,
+        "done_reason": m.done_reason,
+    }
 
 
 def _preset_prompt(name: str) -> str:
@@ -61,6 +102,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Sampling temperature (default: %(default)s)",
     )
     p.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Ollama option `seed` for reproducible sampling (optional)",
+    )
+    p.add_argument(
         "--preset",
         choices=("short", "medium", "long"),
         default="short",
@@ -79,10 +126,23 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Append one row per measured run to this CSV file",
     )
+    p.add_argument(
+        "--save-responses",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="Append one JSON object per run (full prompt + assistant text) as JSON Lines",
+    )
+    p.add_argument(
+        "--save-warmup-responses",
+        action="store_true",
+        help="With --save-responses, also append warmup runs to the JSONL file",
+    )
     args = p.parse_args(argv)
 
     models = args.models or ["llama3.2:latest"]
     user_prompt = args.prompt if args.prompt is not None else _preset_prompt(args.preset)
+    preset_label = "custom" if args.prompt is not None else args.preset
 
     client = httpx.Client(timeout=600.0)
     rows_for_csv: list[dict[str, object]] = []
@@ -97,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
                     user_prompt=user_prompt,
                     num_predict=args.num_predict,
                     temperature=args.temperature,
+                    seed=args.seed,
                     client=client,
                 )
                 label = "warmup" if w < args.warmup - 1 else "warmup (last)"
@@ -107,6 +168,22 @@ def main(argv: list[str] | None = None) -> int:
                         f"  {label}: ttft={m.ttft_ms:.1f} ms  total={m.total_ms:.1f} ms  "
                         f"decode_tps={m.decode_tps}  eval_count={m.eval_count}",
                         flush=True,
+                    )
+                if args.save_responses and args.save_warmup_responses:
+                    _append_jsonl(
+                        args.save_responses,
+                        _jsonl_record(
+                            phase="warmup",
+                            model=model,
+                            run=None,
+                            warmup_index=w,
+                            temperature=args.temperature,
+                            seed=args.seed,
+                            num_predict=args.num_predict,
+                            preset=preset_label,
+                            prompt=user_prompt,
+                            m=m,
+                        ),
                     )
 
             ttfts: list[float] = []
@@ -122,8 +199,25 @@ def main(argv: list[str] | None = None) -> int:
                     user_prompt=user_prompt,
                     num_predict=args.num_predict,
                     temperature=args.temperature,
+                    seed=args.seed,
                     client=client,
                 )
+                if args.save_responses:
+                    _append_jsonl(
+                        args.save_responses,
+                        _jsonl_record(
+                            phase="measured",
+                            model=model,
+                            run=i + 1,
+                            warmup_index=None,
+                            temperature=args.temperature,
+                            seed=args.seed,
+                            num_predict=args.num_predict,
+                            preset=preset_label,
+                            prompt=user_prompt,
+                            m=m,
+                        ),
+                    )
                 if m.error:
                     errors += 1
                     print(f"  run {i + 1}/{args.runs}: ERROR {m.error}", flush=True)
@@ -140,6 +234,9 @@ def main(argv: list[str] | None = None) -> int:
                             "eval_count": "",
                             "prompt_eval_count": "",
                             "done_reason": "",
+                            "temperature": args.temperature,
+                            "seed": args.seed if args.seed is not None else "",
+                            "response_chars": 0,
                         }
                     )
                     continue
@@ -158,6 +255,7 @@ def main(argv: list[str] | None = None) -> int:
                     f"e2e_tps={e_tps}  eval={m.eval_count}",
                     flush=True,
                 )
+                rtext = m.response_text or ""
                 rows_for_csv.append(
                     {
                         "model": model,
@@ -173,6 +271,9 @@ def main(argv: list[str] | None = None) -> int:
                         if m.prompt_eval_count is not None
                         else "",
                         "done_reason": m.done_reason or "",
+                        "temperature": args.temperature,
+                        "seed": args.seed if args.seed is not None else "",
+                        "response_chars": len(rtext),
                     }
                 )
 
@@ -223,6 +324,9 @@ def main(argv: list[str] | None = None) -> int:
             "eval_count",
             "prompt_eval_count",
             "done_reason",
+            "temperature",
+            "seed",
+            "response_chars",
         ]
         with args.csv.open("a", newline="") as f:
             w = csv.DictWriter(f, fieldnames=fieldnames)
@@ -231,6 +335,9 @@ def main(argv: list[str] | None = None) -> int:
             for row in rows_for_csv:
                 w.writerow(row)
         print(f"\nWrote {len(rows_for_csv)} rows to {args.csv}", flush=True)
+
+    if args.save_responses:
+        print(f"\nAppended JSONL records to {args.save_responses}", flush=True)
 
     return 0
 

@@ -21,6 +21,7 @@ class StreamMetrics:
     prompt_eval_count: int | None
     done_reason: str | None
     error: str | None = None
+    response_text: str | None = None
 
 
 def _parse_sse_line(line: str) -> dict[str, Any] | None:
@@ -40,6 +41,7 @@ def bench_chat_stream(
     user_prompt: str,
     num_predict: int,
     temperature: float = 0.0,
+    seed: int | None = None,
     timeout_s: float = 600.0,
     client: httpx.Client | None = None,
 ) -> StreamMetrics:
@@ -51,14 +53,17 @@ def bench_chat_stream(
     Decode TPS: (eval_count - 1) / (t_done - t_first_token) using Ollama's eval_count.
     """
     url = base_url.rstrip("/") + "/api/chat"
+    options: dict[str, Any] = {
+        "num_predict": num_predict,
+        "temperature": temperature,
+    }
+    if seed is not None:
+        options["seed"] = seed
     payload: dict[str, Any] = {
         "model": model,
         "messages": [{"role": "user", "content": user_prompt}],
         "stream": True,
-        "options": {
-            "num_predict": num_predict,
-            "temperature": temperature,
-        },
+        "options": options,
     }
 
     own_client = client is None
@@ -70,6 +75,7 @@ def bench_chat_stream(
     eval_count: int | None = None
     prompt_eval_count: int | None = None
     done_reason: str | None = None
+    accumulated = ""
 
     try:
         with http.stream("POST", url, json=payload) as resp:
@@ -84,6 +90,7 @@ def bench_chat_stream(
                     prompt_eval_count=None,
                     done_reason=None,
                     error=f"HTTP {resp.status_code}: {body[:500]}",
+                    response_text=None,
                 )
 
             for line in resp.iter_lines():
@@ -92,6 +99,7 @@ def bench_chat_stream(
                     continue
                 msg = data.get("message") or {}
                 piece = msg.get("content") or ""
+                accumulated += piece
                 if t_first_token is None and piece:
                     t_first_token = time.perf_counter()
                 if data.get("done"):
@@ -110,6 +118,7 @@ def bench_chat_stream(
             prompt_eval_count=None,
             done_reason=None,
             error=str(e),
+            response_text=accumulated or None,
         )
     finally:
         if own_client:
@@ -125,6 +134,7 @@ def bench_chat_stream(
             prompt_eval_count=None,
             done_reason=None,
             error="stream ended without done=true",
+            response_text=accumulated or None,
         )
 
     total_ms = (t_done - t_start) * 1000
@@ -153,6 +163,7 @@ def bench_chat_stream(
         prompt_eval_count=prompt_eval_count,
         done_reason=done_reason,
         error=None,
+        response_text=accumulated,
     )
 
 

@@ -58,7 +58,13 @@ ollama-bench --runs 5 --model llama3.2:latest --model llama3:latest --num-predic
 
 # Longer input (prefill stress) and CSV log
 ollama-bench --preset long --runs 10 --model llama3.2:latest --csv results.csv
+
+# Log full assistant text per run (JSON Lines) + optional reproducible seed
+ollama-bench --model llama3.2:latest --preset short --runs 20 --temperature 0.7 \
+  --save-responses responses.jsonl --csv runs.csv
 ```
+
+A worked **temperature / seed** comparison (same preset, with and without `--seed`) is in [`temperature_experiment_notes.md`](temperature_experiment_notes.md).
 
 ### CLI flags (short)
 
@@ -68,11 +74,14 @@ ollama-bench --preset long --runs 10 --model llama3.2:latest --csv results.csv
 | `--model` | Model tag; repeat for multiple models in one session |
 | `--num-predict` | Max **new** tokens per completion (Ollama `num_predict`; model may stop earlier) |
 | `--temperature` | Sampling temperature (default `0.0`) |
+| `--seed` | Ollama `seed` for reproducible sampling (optional) |
 | `--preset` | Built-in prompt: `short` / `medium` / `long` |
 | `--prompt` | Custom user message (overrides `--preset`) |
 | `--warmup` | Extra runs per model before statistics (not included in summary) |
 | `--runs` | Measured runs per model for median / quartiles / mean |
-| `--csv` | Append one row per measured run |
+| `--csv` | Append one row per measured run (`temperature`, `seed`, `response_chars`, …) |
+| `--save-responses` | Append one JSON object per run (full `prompt` + `response`, JSON Lines) |
+| `--save-warmup-responses` | With `--save-responses`, also log warmup runs |
 
 ## Metrics (how to read the output)
 

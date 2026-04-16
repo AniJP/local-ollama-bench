@@ -180,9 +180,10 @@
   "required": ["summary", "sentiment"]
 }</textarea>
         </div>
-        <div class="row" style="gap: 1rem;">
+        <div class="row" style="gap: 1rem; flex-wrap: wrap;">
           <label class="opt">Temperature <input type="number" id="temperature" step="0.1" min="0" max="2" placeholder="(default)" title="Ollama default if empty" /></label>
           <label class="opt">Seed <input type="number" id="seed" step="1" placeholder="(random)" title="Set for reproducible sampling" /></label>
+          <label class="opt">Max validate retries <input type="number" id="maxValAttempts" min="1" max="12" value="3" title="JSON / schema modes: parse + schema check; retry with feedback (server-side)" /></label>
         </div>
       </div>
     </details>
@@ -206,6 +207,7 @@
     const schemaEl = document.getElementById("schema");
     const temperatureEl = document.getElementById("temperature");
     const seedEl = document.getElementById("seed");
+    const maxValAttemptsEl = document.getElementById("maxValAttempts");
 
     /** @type {{ role: string, content: string }[]} */
     let messages = [];
@@ -222,6 +224,20 @@
     function setStatus(text, isErr) {
       statusEl.textContent = text || "";
       statusEl.className = isErr ? "err" : "";
+    }
+
+    async function parseHttpError(res) {
+      const t = await res.text();
+      try {
+        const j = JSON.parse(t);
+        if (typeof j.detail === "string") return j.detail;
+        if (Array.isArray(j.detail)) {
+          return j.detail.map((x) => (x.msg ? x.msg : JSON.stringify(x))).join("; ");
+        }
+      } catch {
+        /* not JSON */
+      }
+      return t || res.statusText;
     }
 
     function rollbackPendingSend() {
@@ -258,8 +274,22 @@
     async function loadModels() {
       setStatus("Loading models…");
       try {
+        const hr = await fetch("/api/health");
+        let ollamaHint = "";
+        if (hr.ok) {
+          const h = await hr.json();
+          if (h.ollama_reachable === false) {
+            ollamaHint =
+              ` Ollama at ${h.ollama_base} is not reachable (${h.ollama_error || "unknown error"}). ` +
+              "Start the Ollama app, then click Refresh models.";
+          }
+        }
         const r = await fetch("/api/models");
-        if (!r.ok) throw new Error(await r.text());
+        if (!r.ok) {
+          const detail = await parseHttpError(r);
+          const msg = ollamaHint ? `${detail} ${ollamaHint}` : detail;
+          throw new Error(msg.trim());
+        }
         const data = await r.json();
         const names = data.models || [];
         modelEl.innerHTML = "";
@@ -343,6 +373,17 @@
       }
       if (Object.keys(opts).length) body.options = opts;
 
+      if (outMode === "json" || outMode === "schema") {
+        const m = Number(maxValAttemptsEl.value);
+        if (!Number.isInteger(m) || m < 1 || m > 12) {
+          setStatus("Max validate retries must be an integer 1–12.", true);
+          sendBtn.disabled = false;
+          rollbackPendingSend();
+          return;
+        }
+        body.max_validation_attempts = m;
+      }
+
       try {
         const res = await fetch("/api/chat/stream", {
           method: "POST",
@@ -372,7 +413,10 @@
             } catch {
               continue;
             }
-            if (j.error) throw new Error(j.error);
+            if (j.error) {
+              const a = j.validation_attempts;
+              throw new Error(a ? `${j.error} (attempts: ${a})` : j.error);
+            }
             const piece = j.message && j.message.content;
             if (piece) {
               full += piece;
@@ -389,7 +433,8 @@
                   /* keep raw if model wrapped or invalid */
                 }
               }
-              setStatus("");
+              const va = j.validation_attempts;
+              setStatus(va ? `OK (validated, ${va} attempt${va === 1 ? "" : "s"})` : "");
               sendBtn.disabled = false;
               return;
             }

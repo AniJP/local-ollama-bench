@@ -12,3 +12,7 @@ build/
 *.swp
 .idea/
 .vscode/
+
+# Local ollama-bench exports (omit from git; see temperature_experiment_notes.md)
+responses_*.jsonl
+runs_*.csv
