@@ -33,6 +33,33 @@ def check_ollama_alive(client: httpx.Client, base_url: str) -> None:
         )
 
 
+def list_installed_model_tags(client: httpx.Client, base_url: str) -> list[str]:
+    url = base_url.rstrip("/") + "/api/tags"
+    r = client.get(url, timeout=15.0)
+    if r.status_code >= 400:
+        raise RuntimeError(
+            f"Cannot list models at {base_url}: HTTP {r.status_code}: {r.text[:400]}"
+        )
+    data = r.json()
+    return [str(m["name"]) for m in data.get("models", []) if m.get("name")]
+
+
+def check_models_installed(client: httpx.Client, base_url: str, models: list[str]) -> None:
+    """Raise RuntimeError if any requested tag is missing from `ollama list` / GET /api/tags."""
+    installed = set(list_installed_model_tags(client, base_url))
+    missing = [m for m in models if m not in installed]
+    if not missing:
+        return
+    preview = ", ".join(sorted(installed)[:30])
+    extra = len(installed) - 30
+    suffix = f"\n… and {extra} more tag(s)." if extra > 0 else ""
+    raise RuntimeError(
+        f"These model tags are not installed locally (exact match required): {missing}\n"
+        f"Tags on this machine include: {preview}{suffix}\n"
+        "Fix `--model` to match `ollama list`, or run `ollama pull <tag>` for each model."
+    )
+
+
 def load_prompts(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
     out: list[str] = []
@@ -119,6 +146,7 @@ def run_prompt_suite(
     client = httpx.Client(timeout=600.0)
     try:
         check_ollama_alive(client, base_url)
+        check_models_installed(client, base_url, models)
     except RuntimeError as e:
         print(str(e), file=sys.stderr, flush=True)
         client.close()

@@ -75,9 +75,9 @@ Bundled suite: **~47** one-line prompts in `src/local_ollama_bench/prompts/bench
 ```bash
 ollama-bench-prompts --help
 
-# Example: three models (use your real Ollama tags), JSONL + CSV, reproducible at T=0
+# Example: multiple models — each `--model` tag must match `ollama list` exactly
 ollama-bench-prompts \
-  --model llama3.2:3b --model mistral:7b --model phi4-mini \
+  --model llama3.2:latest --model mistral:latest \
   --output-jsonl suite_run.jsonl --output-csv suite_run.csv \
   --machine-label "MacBook / describe hardware" \
   --temperature 0 --seed 1 --num-predict 256
