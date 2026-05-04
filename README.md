@@ -66,6 +66,25 @@ ollama-bench --model llama3.2:latest --preset short --runs 20 --temperature 0.7 
 
 A worked **temperature / seed** comparison (same preset, with and without `--seed`) is in [`temperature_experiment_notes.md`](temperature_experiment_notes.md).
 
+### Multi-model prompt suite (`ollama-bench-prompts`)
+
+Runs the **same** prompt list on **multiple** Ollama model tags on **one machine**. Each completion is written to **JSONL** (full `prompt` + `response`, timing, token counts) and optionally **CSV**. After each completion it calls Ollama **`GET /api/ps`** (unless disabled) and stores the JSON so you can compare **VRAM / loaded-model** snapshots.
+
+Bundled suite: **~47** one-line prompts in `src/local_ollama_bench/prompts/benchmark_prompts.txt` (override with `--prompt-file`). Pull the exact tags you use (`ollama pull …`).
+
+```bash
+ollama-bench-prompts --help
+
+# Example: three models (use your real Ollama tags), JSONL + CSV, reproducible at T=0
+ollama-bench-prompts \
+  --model llama3.2:3b --model mistral:7b --model phi4-mini \
+  --output-jsonl suite_run.jsonl --output-csv suite_run.csv \
+  --machine-label "MacBook / describe hardware" \
+  --temperature 0 --seed 1 --num-predict 256
+```
+
+**Output quality** is not auto-scored: use JSONL for blind human review, a rubric, or an external **LLM-as-judge**. For fair comparisons, keep the machine idle, use the same Ollama version, and run models **one after another**; unload between models if you need clean VRAM (`ollama stop <model>`). Use `--no-memory-snapshot` if `/api/ps` is unavailable.
+
 ### CLI flags (short)
 
 | Flag | Meaning |

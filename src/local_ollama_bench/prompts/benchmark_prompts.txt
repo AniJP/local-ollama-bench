@@ -1,0 +1,50 @@
+# Standard prompt suite for multi-model comparison (one prompt per line; # = comment).
+# Target: 30–50 diverse tasks. Edit or replace with your own file via --prompt-file.
+
+What is the capital of Australia? Answer in one sentence.
+Explain the difference between precision and recall in one short paragraph.
+Write a Python function that returns the factorial of n using recursion. Include a one-line docstring.
+Summarize the pros and cons of microservices vs a monolith in under 120 words.
+Translate to French: "The server is running locally for privacy reasons."
+Classify the sentiment of this text as positive, negative, or neutral, with one sentence of justification: "The battery lasted all day and the screen is gorgeous."
+What is overfitting in machine learning? Give a concrete example in two sentences.
+List three ethical risks of deploying LLMs in healthcare triage.
+Write a JSON object with keys "city", "population_estimate", and "continent" for Tokyo (approximate population is fine).
+Explain what TTFT means for a chat LLM in one sentence.
+Debug this idea in one paragraph: a hash map that stores duplicate keys by keeping a list of values per key.
+Write a haiku about winter and GPUs.
+What is the time complexity of binary search? State the answer and one assumption.
+Convert 42 degrees Celsius to Fahrenheit and show the formula.
+Name two open-source LLM inference runtimes and one sentence each on what they optimize for.
+Is this statement true or false? Explain in one sentence: "Gradient descent always finds the global minimum."
+Give a one-paragraph outline for a blog post titled "Why local inference matters for regulated industries."
+Rewrite more concisely (max 40 words): "In the event that we are unable to proceed with the originally scheduled deployment, we will notify stakeholders accordingly."
+What does the acronym RAG stand for in GenAI, and what problem does it address? Two sentences max.
+Provide a SQL query that selects user_id and COUNT(*) from orders grouped by user_id for users with more than 5 orders.
+Explain the difference between correlation and causation with a toy example in three sentences.
+What is a confusion matrix? Define it in two sentences.
+Write a regex (any common dialect) that matches a simple IPv4 address; explain in one line what it accepts.
+Describe one way to reduce hallucinations in LLM-powered assistants without using external retrieval.
+What is mixed precision training? One short paragraph.
+List four evaluation metrics suitable for text generation besides BLEU.
+In one paragraph, explain why token throughput (tokens/sec) can differ from wall-clock latency for the same model.
+What is quantization in the context of LLMs? Two sentences.
+Give a step-by-step plan (5 bullets) to reproduce a benchmark on the same machine twice fairly.
+Compare CPU vs GPU inference for LLMs in under 100 words.
+What is a KV cache in transformer decoding? Explain at a high level in two sentences.
+Write a minimal REST request description (method + path + JSON body fields) for a hypothetical /chat endpoint that accepts model and messages.
+Explain temperature in LLM sampling in two sentences, including one caveat.
+What is structured output (JSON / JSON Schema) used for in LLM APIs? One short paragraph.
+Give one security risk of exposing an LLM API to the public internet and one mitigation.
+What is LoRA used for in fine-tuning? Two sentences.
+Describe how you would detect if a model is producing inconsistent answers across runs for the same prompt.
+What is the difference between batch inference and streaming inference for chat UX? Three sentences max.
+Name two reasons a local Ollama benchmark might show high variance run-to-run on a laptop.
+Explain chain-of-thought prompting in two sentences; mention when it may hurt latency.
+What is a system prompt vs a user message in chat APIs? Two sentences.
+Write a short product requirement (max 80 words) for "export benchmark results to JSON Lines."
+What does "cold start" mean for an LLM server? One sentence.
+List three checkpoints you would record when publishing benchmark results for reproducibility.
+Explain embedding-based semantic search in one short paragraph.
+What is a token in LLM APIs? One sentence, non-technical audience.
+Give a single-sentence definition of MLOps.

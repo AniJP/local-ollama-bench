@@ -16,3 +16,5 @@ build/
 # Local ollama-bench exports (omit from git; see temperature_experiment_notes.md)
 responses_*.jsonl
 runs_*.csv
+suite_*.jsonl
+suite_*.csv
